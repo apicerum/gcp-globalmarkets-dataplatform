@@ -1,0 +1,46 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C-extensions
+*.so
+
+# Python Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+
+# Airflow Local State & Runtime Logs
+logs/
+!logs/.gitkeep
+airflow.cfg
+airflow.db
+airflow-worker.pid
+
+# Service Account Keys & GCP Secrets
+*.json
+!package.json
+secrets/
+*.pem
+.env
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfvars
+terraform/*.tfvars.json
+terraform/.terraform.lock.hcl
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files (macOS / Windows)
+.DS_Store
+Thumbs.db
+Desktop.ini
