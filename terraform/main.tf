@@ -93,7 +93,7 @@ resource "google_project_iam_member" "bq_job_user" {
 
 # Tabla externa para Binance
 resource "google_bigquery_table" "ext_binance_raw" {
-  dataset_id  = google_bigquery_dataset.staging_dataset.dataset_id
+  dataset_id  = google_bigquery_dataset.staging.dataset_id
   table_id    = "ext_binance_raw"
   description = "Tabla externa que mapea los JSONs crudos de Binance desde GCS Raw"
 
@@ -115,7 +115,7 @@ EOF
 
 # Tabla externa para CoinGecko (usando tipo JSON de BQ para estructuras anidadas)
 resource "google_bigquery_table" "ext_coingecko_raw" {
-  dataset_id  = google_bigquery_dataset.staging_dataset.dataset_id
+  dataset_id  = google_bigquery_dataset.staging.dataset_id
   table_id    = "ext_coingecko_raw"
   description = "Tabla externa que mapea los JSONs anidados de CoinGecko desde GCS Raw"
 
@@ -155,7 +155,7 @@ EOF
 
 # Vista normalizada para Binance
 resource "google_bigquery_table" "stg_binance_prices" {
-  dataset_id  = google_bigquery_dataset.staging_dataset.dataset_id
+  dataset_id  = google_bigquery_dataset.staging.dataset_id
   table_id    = "stg_binance_prices"
   description = "Vista procesada y tipada con métricas de Binance"
 
@@ -179,7 +179,7 @@ EOF
 
 # Vista normalizada para CoinGecko (unificando las claves anidadas)
 resource "google_bigquery_table" "stg_coingecko_prices" {
-  dataset_id  = google_bigquery_dataset.staging_dataset.dataset_id
+  dataset_id  = google_bigquery_dataset.staging.dataset_id
   table_id    = "stg_coingecko_prices"
   description = "Vista procesada que desanida y estandariza los datos de CoinGecko"
 
