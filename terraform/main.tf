@@ -86,3 +86,113 @@ resource "google_project_iam_member" "bq_job_user" {
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.airflow_sa.email}"
 }
+
+# -----------------------------------------------------------------------------
+# 4. Tablas Externas en BigQuery (Capa Raw / Bronze)
+# -----------------------------------------------------------------------------
+
+# Tabla externa para Binance
+resource "google_bigquery_table" "ext_binance_raw" {
+  dataset_id  = google_bigquery_dataset.staging_dataset.dataset_id
+  table_id    = "ext_binance_raw"
+  description = "Tabla externa que mapea los JSONs crudos de Binance desde GCS Raw"
+
+  external_data_configuration {
+    autodetect    = false
+    source_format = "JSON"
+    source_uris   = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/binance/*/*/*/*.json"]
+
+    schema = <<EOF
+[
+  { "name": "symbol", "type": "STRING", "mode": "NULLABLE" },
+  { "name": "lastPrice", "type": "STRING", "mode": "NULLABLE" },
+  { "name": "volume", "type": "STRING", "mode": "NULLABLE" },
+  { "name": "priceChangePercent", "type": "STRING", "mode": "NULLABLE" }
+]
+EOF
+  }
+}
+
+# Tabla externa para CoinGecko (usando tipo JSON de BQ para estructuras anidadas)
+resource "google_bigquery_table" "ext_coingecko_raw" {
+  dataset_id  = google_bigquery_dataset.staging_dataset.dataset_id
+  table_id    = "ext_coingecko_raw"
+  description = "Tabla externa que mapea los JSONs anidados de CoinGecko desde GCS Raw"
+
+  external_data_configuration {
+    autodetect    = false
+    source_format = "NEWLINE_DELIMITED_JSON"
+    source_uris   = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/coingecko/*/*/*/*.json"]
+
+    schema = <<EOF
+[
+  { "name": "bitcoin", "type": "RECORD", "mode": "NULLABLE", "fields": [
+      { "name": "usd", "type": "FLOAT", "mode": "NULLABLE" },
+      { "name": "usd_24h_vol", "type": "FLOAT", "mode": "NULLABLE" },
+      { "name": "usd_24h_change", "type": "FLOAT", "mode": "NULLABLE" }
+    ]
+  },
+  { "name": "ethereum", "type": "RECORD", "mode": "NULLABLE", "fields": [
+      { "name": "usd", "type": "FLOAT", "mode": "NULLABLE" },
+      { "name": "usd_24h_vol", "type": "FLOAT", "mode": "NULLABLE" },
+      { "name": "usd_24h_change", "type": "FLOAT", "mode": "NULLABLE" }
+    ]
+  },
+  { "name": "solana", "type": "RECORD", "mode": "NULLABLE", "fields": [
+      { "name": "usd", "type": "FLOAT", "mode": "NULLABLE" },
+      { "name": "usd_24h_vol", "type": "FLOAT", "mode": "NULLABLE" },
+      { "name": "usd_24h_change", "type": "FLOAT", "mode": "NULLABLE" }
+    ]
+  }
+]
+EOF
+  }
+}
+
+# -----------------------------------------------------------------------------
+# 5. Vistas de Transformación en BigQuery (Capa Staging / Silver)
+# -----------------------------------------------------------------------------
+
+# Vista normalizada para Binance
+resource "google_bigquery_table" "stg_binance_prices" {
+  dataset_id  = google_bigquery_dataset.staging_dataset.dataset_id
+  table_id    = "stg_binance_prices"
+  description = "Vista procesada y tipada con métricas de Binance"
+
+  view {
+    sql = <<EOF
+SELECT
+  symbol,
+  CAST(lastPrice AS NUMERIC) AS price_usd,
+  CAST(volume AS NUMERIC) AS volume_24h,
+  CAST(priceChangePercent AS NUMERIC) AS change_24h_percent,
+  'binance' AS source,
+  CURRENT_TIMESTAMP() AS processed_at
+FROM
+  `${var.project_id}.${google_bigquery_dataset.staging_dataset.dataset_id}.${google_bigquery_table.ext_binance_raw.table_id}`
+EOF
+    use_legacy_sql = false
+  }
+
+  depends_on = [google_bigquery_table.ext_binance_raw]
+}
+
+# Vista normalizada para CoinGecko (unificando las claves anidadas)
+resource "google_bigquery_table" "stg_coingecko_prices" {
+  dataset_id  = google_bigquery_dataset.staging_dataset.dataset_id
+  table_id    = "stg_coingecko_prices"
+  description = "Vista procesada que desanida y estandariza los datos de CoinGecko"
+
+  view {
+    sql = <<EOF
+SELECT 'BTCUSDT' AS symbol, CAST(bitcoin.usd AS NUMERIC) AS price_usd, CAST(bitcoin.usd_24h_vol AS NUMERIC) AS volume_24h, CAST(bitcoin.usd_24h_change AS NUMERIC) AS change_24h_percent, 'coingecko' AS source, CURRENT_TIMESTAMP() AS processed_at FROM `${var.project_id}.${google_bigquery_dataset.staging_dataset.dataset_id}.${google_bigquery_table.ext_coingecko_raw.table_id}` WHERE bitcoin.usd IS NOT NULL
+UNION ALL
+SELECT 'ETHUSDT' AS symbol, CAST(ethereum.usd AS NUMERIC) AS price_usd, CAST(ethereum.usd_24h_vol AS NUMERIC) AS volume_24h, CAST(ethereum.usd_24h_change AS NUMERIC) AS change_24h_percent, 'coingecko' AS source, CURRENT_TIMESTAMP() AS processed_at FROM `${var.project_id}.${google_bigquery_dataset.staging_dataset.dataset_id}.${google_bigquery_table.ext_coingecko_raw.table_id}` WHERE ethereum.usd IS NOT NULL
+UNION ALL
+SELECT 'SOLUSDT' AS symbol, CAST(solana.usd AS NUMERIC) AS price_usd, CAST(solana.usd_24h_vol AS NUMERIC) AS volume_24h, CAST(solana.usd_24h_change AS NUMERIC) AS change_24h_percent, 'coingecko' AS source, CURRENT_TIMESTAMP() AS processed_at FROM `${var.project_id}.${google_bigquery_dataset.staging_dataset.dataset_id}.${google_bigquery_table.ext_coingecko_raw.table_id}` WHERE solana.usd IS NOT NULL
+EOF
+    use_legacy_sql = false
+  }
+
+  depends_on = [google_bigquery_table.ext_coingecko_raw]
+}
