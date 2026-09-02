@@ -61,9 +61,24 @@ resource "google_bigquery_dataset" "analytics" {
 # -----------------------------------------------------------------------------
 # 3. Service Account para Airflow
 # -----------------------------------------------------------------------------
+# Habilitar la API de IAM
+resource "google_project_service" "iam_api" {
+  project            = var.project_id
+  service            = "iam.googleapis.com"
+  disable_on_destroy = false
+}
+
+# Service Account para Airflow con dependencia de la API
 resource "google_service_account" "airflow_sa" {
   account_id   = "airflow-orchestrator"
   display_name = "Airflow Orchestrator Service Account"
+  depends_on = [google_project_service.iam_api]
+}
+
+resource "google_service_account" "airflow_sa" {
+  account_id   = "airflow-orchestrator"
+  display_name = "Airflow Orchestrator Service Account"
+  depends_on = [google_project_service.iam_api]  
 }
 
 # Permisos para GCS
@@ -71,6 +86,7 @@ resource "google_storage_bucket_iam_member" "gcs_admin" {
   bucket = google_storage_bucket.raw_bucket.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.airflow_sa.email}"
+  depends_on = [google_project_service.iam_api]  
 }
 
 # Permisos para BigQuery
@@ -78,10 +94,12 @@ resource "google_project_iam_member" "bq_editor" {
   project = var.project_id
   role    = "roles/bigquery.dataEditor"
   member  = "serviceAccount:${google_service_account.airflow_sa.email}"
+  depends_on = [google_project_service.iam_api]  
 }
 
 resource "google_project_iam_member" "bq_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.airflow_sa.email}"
+  depends_on = [google_project_service.iam_api]  
 }
