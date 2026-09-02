@@ -61,7 +61,7 @@ resource "google_bigquery_dataset" "analytics" {
 # -----------------------------------------------------------------------------
 # 3. Service Account para Airflow
 # -----------------------------------------------------------------------------
-# Habilitar la API de IAM
+# Habilitar la API de IAM 
 resource "google_project_service" "iam_api" {
   project            = var.project_id
   service            = "iam.googleapis.com"
