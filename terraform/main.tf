@@ -61,11 +61,19 @@ resource "google_bigquery_dataset" "analytics" {
 # -----------------------------------------------------------------------------
 # 3. Service Account para Airflow
 # -----------------------------------------------------------------------------
+# Habilitar Cloud Resource Manager API
+resource "google_project_service" "crm_api" {
+  project            = var.project_id
+  service            = "cloudresourcemanager.googleapis.com"
+  disable_on_destroy = false
+}
+
 # Habilitar la API de IAM 
 resource "google_project_service" "iam_api" {
   project            = var.project_id
   service            = "iam.googleapis.com"
   disable_on_destroy = false
+  depends_on         = [google_project_service.crm_api]
 }
 
 # Service Account para Airflow con dependencia de la API
