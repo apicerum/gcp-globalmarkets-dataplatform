@@ -75,12 +75,6 @@ resource "google_service_account" "airflow_sa" {
   depends_on = [google_project_service.iam_api]
 }
 
-resource "google_service_account" "airflow_sa" {
-  account_id   = "airflow-orchestrator"
-  display_name = "Airflow Orchestrator Service Account"
-  depends_on = [google_project_service.iam_api]  
-}
-
 # Permisos para GCS
 resource "google_storage_bucket_iam_member" "gcs_admin" {
   bucket = google_storage_bucket.raw_bucket.name
