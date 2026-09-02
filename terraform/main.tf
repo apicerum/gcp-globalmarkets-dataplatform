@@ -100,7 +100,7 @@ resource "google_bigquery_table" "ext_binance_raw" {
   external_data_configuration {
     autodetect    = false
     source_format = "NEWLINE_DELIMITED_JSON"
-    source_uris   = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/binance/*/*/*/*.json"]
+    source_uris   = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/binance/*.json"]
 
     schema = <<EOF
 [
@@ -122,7 +122,7 @@ resource "google_bigquery_table" "ext_coingecko_raw" {
   external_data_configuration {
     autodetect    = false
     source_format = "NEWLINE_DELIMITED_JSON"
-    source_uris   = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/coingecko/*/*/*/*.json"]
+    source_uris   = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/coingecko/*.json"]
 
     schema = <<EOF
 [
