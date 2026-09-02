@@ -10,9 +10,13 @@ x-airflow-common:
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__TEST_CONNECTION: 'Enabled'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
     AIRFLOW_VAR_GCP_PROJECT_ID: ${GCP_PROJECT_ID}
     AIRFLOW_VAR_GCS_BUCKET_RAW: ${GCP_GCS_BUCKET_RAW}
+    # Ruta de credenciales mapeada
+    GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/config/gcp-sa-airflow.json
+    GCP_PROJECT_ID: gcp-globalmarkets-dataplatform
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
