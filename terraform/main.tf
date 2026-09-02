@@ -160,7 +160,7 @@ resource "google_bigquery_table" "stg_binance_prices" {
   description = "Vista procesada y tipada con métricas de Binance"
 
   view {
-    query            = <<EOF
+    query          = <<EOF
 SELECT
   symbol,
   CAST(lastPrice AS NUMERIC) AS price_usd,
@@ -184,7 +184,7 @@ resource "google_bigquery_table" "stg_coingecko_prices" {
   description = "Vista procesada que desanida y estandariza los datos de CoinGecko"
 
   view {
-    query            = <<EOF
+    query          = <<EOF
 SELECT 'BTCUSDT' AS symbol, CAST(bitcoin.usd AS NUMERIC) AS price_usd, CAST(bitcoin.usd_24h_vol AS NUMERIC) AS volume_24h, CAST(bitcoin.usd_24h_change AS NUMERIC) AS change_24h_percent, 'coingecko' AS source, CURRENT_TIMESTAMP() AS processed_at FROM `${var.project_id}.${google_bigquery_dataset.staging_dataset.dataset_id}.${google_bigquery_table.ext_coingecko_raw.table_id}` WHERE bitcoin.usd IS NOT NULL
 UNION ALL
 SELECT 'ETHUSDT' AS symbol, CAST(ethereum.usd AS NUMERIC) AS price_usd, CAST(ethereum.usd_24h_vol AS NUMERIC) AS volume_24h, CAST(ethereum.usd_24h_change AS NUMERIC) AS change_24h_percent, 'coingecko' AS source, CURRENT_TIMESTAMP() AS processed_at FROM `${var.project_id}.${google_bigquery_dataset.staging_dataset.dataset_id}.${google_bigquery_table.ext_coingecko_raw.table_id}` WHERE ethereum.usd IS NOT NULL
