@@ -11,21 +11,21 @@ BUCKET_NAME = f"{PROJECT_ID}-raw"
 
 
 def extract_and_upload_binance(**kwargs):
-    """Extrae tickers de Binance API y sube el archivo JSON a GCS Raw."""
+    """Extrae TODOS los tickers de Binance API y sube el archivo NDJSON a GCS Raw."""
+    # Al no pasar el parámetro 'symbols', la API retorna todos los pares activos
     url = "https://api.binance.com/api/v3/ticker/24hr"
-    params = {"symbols": '["BTCUSDT","ETHUSDT","SOLUSDT"]'}
 
-    response = requests.get(url, params=params, timeout=10)
+    response = requests.get(url, timeout=30)
     response.raise_for_status()
     data = response.json()
+
+    # Formatear a NDJSON (un objeto JSON por línea)
     ndjson_data = "\n".join(json.dumps(item) for item in data) + "\n"
 
-    # Formatear ruta en GCS: crypto/binance/YYYY/MM/DD/execution_time.json
     execution_date = kwargs["ds"]
     execution_ts = kwargs["ts_nodash"]
     gcs_object_path = f"crypto/binance/{execution_date.replace('-', '/')}/binance_{execution_ts}.json"
 
-    # Subir a GCS usando el GCSHook
     hook = GCSHook(gcp_conn_id="google_cloud_default")
     hook.upload(
         bucket_name=BUCKET_NAME,
@@ -33,26 +33,32 @@ def extract_and_upload_binance(**kwargs):
         data=ndjson_data,
         mime_type="application/x-ndjson",
     )
-    print(f"Uploaded Binance data to gs://{BUCKET_NAME}/{gcs_object_path}")
+    print(f"Uploaded Binance full market data ({len(data)} records) to gs://{BUCKET_NAME}/{gcs_object_path}")
 
 
 def extract_and_upload_coingecko(**kwargs):
-    """Extrae datos de CoinGecko API y sube el archivo JSON a GCS Raw."""
-    url = "https://api.coingecko.com/api/v3/simple/price"
+    """Extrae el Top 250 de monedas de CoinGecko por capitalización (endpoint /coins/markets)."""
+    # /coins/markets entrega precio, volumen 24h, % cambio 24h, ath, market cap, etc.
+    # El tier gratuito permite hasta 250 monedas por página.
+    url = "https://api.coingecko.com/api/v3/coins/markets"
     params = {
-        "ids": "bitcoin,ethereum,solana",
-        "vs_currencies": "usd",
-        "include_24hr_vol": "true",
-        "include_24hr_change": "true",
-        "include_last_updated_at": "true",
+        "vs_currency": "usd",
+        "order": "market_cap_desc",
+        "per_page": 250,
+        "page": 1,
+        "sparkline": "false",
+        "price_change_percentage": "24h",
     }
 
-    response = requests.get(url, params=params, timeout=10)
+    headers = {"accept": "application/json"}
+    
+    response = requests.get(url, params=params, headers=headers, timeout=30)
     response.raise_for_status()
     data = response.json()
-    ndjson_data = json.dumps(data) + "\n"
-    
-    # Formatear ruta en GCS: crypto/coingecko/YYYY/MM/DD/execution_time.json
+
+    # La API ya devuelve una lista de diccionarios planos. Convertimos directamente a NDJSON.
+    ndjson_data = "\n".join(json.dumps(item) for item in data) + "\n"
+
     execution_date = kwargs["ds"]
     execution_ts = kwargs["ts_nodash"]
     gcs_object_path = f"crypto/coingecko/{execution_date.replace('-', '/')}/coingecko_{execution_ts}.json"
@@ -64,9 +70,7 @@ def extract_and_upload_coingecko(**kwargs):
         data=ndjson_data,
         mime_type="application/x-ndjson",
     )
-    print(
-        f"Uploaded CoinGecko data to gs://{BUCKET_NAME}/{gcs_object_path}"
-    )
+    print(f"Uploaded CoinGecko market data ({len(data)} records) to gs://{BUCKET_NAME}/{gcs_object_path}")
 
 
 default_args = {

@@ -113,40 +113,28 @@ resource "google_bigquery_table" "ext_binance_raw" {
   }
 }
 
-# Tabla externa para CoinGecko (usando tipo JSON de BQ para estructuras anidadas)
+# Tabla externa para CoinGecko (Estructura plana del endpoint /coins/markets)
 resource "google_bigquery_table" "ext_coingecko_raw" {
   dataset_id  = google_bigquery_dataset.staging.dataset_id
   table_id    = "ext_coingecko_raw"
-  description = "Tabla externa que mapea los JSONs anidados de CoinGecko desde GCS Raw"
+  description = "Tabla externa que mapea los JSONs crudos de CoinGecko desde GCS Raw"
 
   external_data_configuration {
     autodetect            = false
     source_format         = "NEWLINE_DELIMITED_JSON"
     ignore_unknown_values = true
-    source_uris           = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/coingecko/*.json"]
+    source_uris           = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/coingecko/*/*.json"]
 
-    schema = <<EOF
-[
-  { "name": "bitcoin", "type": "RECORD", "mode": "NULLABLE", "fields": [
-      { "name": "usd", "type": "FLOAT", "mode": "NULLABLE" },
-      { "name": "usd_24h_vol", "type": "FLOAT", "mode": "NULLABLE" },
-      { "name": "usd_24h_change", "type": "FLOAT", "mode": "NULLABLE" }
-    ]
-  },
-  { "name": "ethereum", "type": "RECORD", "mode": "NULLABLE", "fields": [
-      { "name": "usd", "type": "FLOAT", "mode": "NULLABLE" },
-      { "name": "usd_24h_vol", "type": "FLOAT", "mode": "NULLABLE" },
-      { "name": "usd_24h_change", "type": "FLOAT", "mode": "NULLABLE" }
-    ]
-  },
-  { "name": "solana", "type": "RECORD", "mode": "NULLABLE", "fields": [
-      { "name": "usd", "type": "FLOAT", "mode": "NULLABLE" },
-      { "name": "usd_24h_vol", "type": "FLOAT", "mode": "NULLABLE" },
-      { "name": "usd_24h_change", "type": "FLOAT", "mode": "NULLABLE" }
-    ]
-  }
-]
-EOF
+    schema = jsonencode([
+      { name = "id", type = "STRING", mode = "NULLABLE" },
+      { name = "symbol", type = "STRING", mode = "NULLABLE" },
+      { name = "name", type = "STRING", mode = "NULLABLE" },
+      { name = "current_price", type = "FLOAT", mode = "NULLABLE" },
+      { name = "total_volume", type = "FLOAT", mode = "NULLABLE" },
+      { name = "price_change_percentage_24h", type = "FLOAT", mode = "NULLABLE" },
+      { name = "market_cap", type = "FLOAT", mode = "NULLABLE" },
+      { name = "last_updated", type = "STRING", mode = "NULLABLE" }
+    ])
   }
 }
 
@@ -178,19 +166,27 @@ EOF
   depends_on = [google_bigquery_table.ext_binance_raw]
 }
 
-# Vista normalizada para CoinGecko (unificando las claves anidadas)
+# Vista normalizada para CoinGecko
 resource "google_bigquery_table" "stg_coingecko_prices" {
   dataset_id  = google_bigquery_dataset.staging.dataset_id
   table_id    = "stg_coingecko_prices"
-  description = "Vista procesada que desanida y estandariza los datos de CoinGecko"
+  description = "Vista procesada que estandariza las métricas de CoinGecko"
 
   view {
     query          = <<EOF
-SELECT 'BTCUSDT' AS symbol, CAST(bitcoin.usd AS NUMERIC) AS price_usd, CAST(bitcoin.usd_24h_vol AS NUMERIC) AS volume_24h, CAST(bitcoin.usd_24h_change AS NUMERIC) AS change_24h_percent, 'coingecko' AS source, CURRENT_TIMESTAMP() AS processed_at FROM `${var.project_id}.${google_bigquery_dataset.staging.dataset_id}.${google_bigquery_table.ext_coingecko_raw.table_id}` WHERE bitcoin.usd IS NOT NULL
-UNION ALL
-SELECT 'ETHUSDT' AS symbol, CAST(ethereum.usd AS NUMERIC) AS price_usd, CAST(ethereum.usd_24h_vol AS NUMERIC) AS volume_24h, CAST(ethereum.usd_24h_change AS NUMERIC) AS change_24h_percent, 'coingecko' AS source, CURRENT_TIMESTAMP() AS processed_at FROM `${var.project_id}.${google_bigquery_dataset.staging.dataset_id}.${google_bigquery_table.ext_coingecko_raw.table_id}` WHERE ethereum.usd IS NOT NULL
-UNION ALL
-SELECT 'SOLUSDT' AS symbol, CAST(solana.usd AS NUMERIC) AS price_usd, CAST(solana.usd_24h_vol AS NUMERIC) AS volume_24h, CAST(solana.usd_24h_change AS NUMERIC) AS change_24h_percent, 'coingecko' AS source, CURRENT_TIMESTAMP() AS processed_at FROM `${var.project_id}.${google_bigquery_dataset.staging.dataset_id}.${google_bigquery_table.ext_coingecko_raw.table_id}` WHERE solana.usd IS NOT NULL
+SELECT
+  -- Concatenamos USDT al símbolo en mayúsculas (ej: 'btc' -> 'BTCUSDT') para homologar con Binance
+  CONCAT(UPPER(symbol), 'USDT') AS symbol,
+  CAST(current_price AS NUMERIC) AS price_usd,
+  CAST(total_volume AS NUMERIC) AS volume_24h,
+  CAST(price_change_percentage_24h AS NUMERIC) AS change_24h_percent,
+  'coingecko' AS source,
+  PARSE_TIMESTAMP('%Y-%m-%dT%H:%M:%E*SZ', last_updated) AS updated_at,
+  CURRENT_TIMESTAMP() AS processed_at
+FROM
+  `${var.project_id}.${google_bigquery_dataset.staging.dataset_id}.${google_bigquery_table.ext_coingecko_raw.table_id}`
+WHERE
+  current_price IS NOT NULL
 EOF
     use_legacy_sql = false
   }
