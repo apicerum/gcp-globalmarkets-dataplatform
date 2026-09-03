@@ -193,3 +193,56 @@ EOF
 
   depends_on = [google_bigquery_table.ext_coingecko_raw]
 }
+
+# -----------------------------------------------------------------------------
+# 6. Capa Gold / Analytics (Datamart Unificado)
+# -----------------------------------------------------------------------------
+
+resource "google_bigquery_table" "gold_crypto_market_overview" {
+  dataset_id  = google_bigquery_dataset.staging.dataset_id # O tu dataset de 'analytics' / 'gold'
+  table_id    = "gold_crypto_market_overview"
+  description = "Vista consolidada de mercado que une Binance y CoinGecko"
+
+  view {
+    query          = <<EOF
+WITH union_sources AS (
+  SELECT
+    symbol,
+    price_usd,
+    volume_24h,
+    change_24h_percent,
+    source,
+    processed_at
+  FROM
+    `${var.project_id}.${google_bigquery_dataset.staging.dataset_id}.${google_bigquery_table.stg_binance_prices.table_id}`
+
+  UNION ALL
+
+  SELECT
+    symbol,
+    price_usd,
+    volume_24h,
+    change_24h_percent,
+    source,
+    processed_at
+  FROM
+    `${var.project_id}.${google_bigquery_dataset.staging.dataset_id}.${google_bigquery_table.stg_coingecko_prices.table_id}`
+)
+SELECT
+  symbol,
+  price_usd,
+  volume_24h,
+  change_24h_percent,
+  source,
+  processed_at
+FROM
+  union_sources
+EOF
+    use_legacy_sql = false
+  }
+
+  depends_on = [
+    google_bigquery_table.stg_binance_prices,
+    google_bigquery_table.stg_coingecko_prices
+  ]
+}
