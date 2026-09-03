@@ -18,6 +18,7 @@ def extract_and_upload_binance(**kwargs):
     response = requests.get(url, params=params, timeout=10)
     response.raise_for_status()
     data = response.json()
+    ndjson_data = "\n".join(json.dumps(item) for item in data) + "\n"
 
     # Formatear ruta en GCS: crypto/binance/YYYY/MM/DD/execution_time.json
     execution_date = kwargs["ds"]
@@ -29,8 +30,8 @@ def extract_and_upload_binance(**kwargs):
     hook.upload(
         bucket_name=BUCKET_NAME,
         object_name=gcs_object_path,
-        data=json.dumps(data, indent=2),
-        mime_type="application/json",
+        data=ndjson_data,
+        mime_type="application/x-ndjson",
     )
     print(f"Uploaded Binance data to gs://{BUCKET_NAME}/{gcs_object_path}")
 
@@ -49,7 +50,8 @@ def extract_and_upload_coingecko(**kwargs):
     response = requests.get(url, params=params, timeout=10)
     response.raise_for_status()
     data = response.json()
-
+    ndjson_data = json.dumps(data) + "\n"
+    
     # Formatear ruta en GCS: crypto/coingecko/YYYY/MM/DD/execution_time.json
     execution_date = kwargs["ds"]
     execution_ts = kwargs["ts_nodash"]
@@ -59,8 +61,8 @@ def extract_and_upload_coingecko(**kwargs):
     hook.upload(
         bucket_name=BUCKET_NAME,
         object_name=gcs_object_path,
-        data=json.dumps(data, indent=2),
-        mime_type="application/json",
+        data=ndjson_data,
+        mime_type="application/x-ndjson",
     )
     print(
         f"Uploaded CoinGecko data to gs://{BUCKET_NAME}/{gcs_object_path}"
