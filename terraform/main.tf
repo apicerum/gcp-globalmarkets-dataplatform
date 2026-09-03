@@ -123,7 +123,7 @@ resource "google_bigquery_table" "ext_coingecko_raw" {
     autodetect            = false
     source_format         = "NEWLINE_DELIMITED_JSON"
     ignore_unknown_values = true
-    source_uris           = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/coingecko/*/*.json"]
+    source_uris           = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/coingecko/*.json"]
 
     schema = jsonencode([
       { name = "id", type = "STRING", mode = "NULLABLE" },
