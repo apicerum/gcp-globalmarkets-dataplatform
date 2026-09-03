@@ -102,14 +102,13 @@ resource "google_bigquery_table" "ext_binance_raw" {
     source_format = "NEWLINE_DELIMITED_JSON"
     source_uris   = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/binance/*.json"]
 
-    schema = <<EOF
-[
-  { "name": "symbol", "type": "STRING", "mode": "NULLABLE" },
-  { "name": "lastPrice", "type": "STRING", "mode": "NULLABLE" },
-  { "name": "volume", "type": "STRING", "mode": "NULLABLE" },
-  { "name": "priceChangePercent", "type": "STRING", "mode": "NULLABLE" }
-]
-EOF
+    schema = jsonencode([
+      { name = "symbol", type = "STRING", mode = "NULLABLE" },
+      { name = "priceChange", type = "STRING", mode = "NULLABLE" },
+      { name = "priceChangePercent", type = "STRING", mode = "NULLABLE" },
+      { name = "lastPrice", type = "STRING", mode = "NULLABLE" },
+      { name = "volume", type = "STRING", mode = "NULLABLE" }
+    ])
   }
 }
 
