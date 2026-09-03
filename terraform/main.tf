@@ -115,15 +115,15 @@ resource "google_bigquery_table" "ext_binance_raw" {
 
 # Tabla externa para CoinGecko (usando tipo JSON de BQ para estructuras anidadas)
 resource "google_bigquery_table" "ext_coingecko_raw" {
-  dataset_id            = google_bigquery_dataset.staging.dataset_id
-  table_id              = "ext_coingecko_raw"
-  ignore_unknown_values = true
-  description           = "Tabla externa que mapea los JSONs anidados de CoinGecko desde GCS Raw"
+  dataset_id  = google_bigquery_dataset.staging.dataset_id
+  table_id    = "ext_coingecko_raw"
+  description = "Tabla externa que mapea los JSONs anidados de CoinGecko desde GCS Raw"
 
   external_data_configuration {
-    autodetect    = false
-    source_format = "NEWLINE_DELIMITED_JSON"
-    source_uris   = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/coingecko/*.json"]
+    autodetect            = false
+    source_format         = "NEWLINE_DELIMITED_JSON"
+    ignore_unknown_values = true
+    source_uris           = ["gs://${google_storage_bucket.raw_bucket.name}/crypto/coingecko/*.json"]
 
     schema = <<EOF
 [
